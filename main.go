@@ -25,11 +25,11 @@ func main() {
 		Kind: "namespace",
 	}
 	parentConfig := &oort.Resource{
-		Id:   "parentConfig",
+		Id:   "parent/parentConfig",
 		Kind: "config",
 	}
 	childConfig := &oort.Resource{
-		Id:   "childConfig",
+		Id:   "child/childConfig",
 		Kind: "config",
 	}
 	user1 := &oort.Resource{
@@ -44,9 +44,18 @@ func main() {
 		Id:   "1",
 		Kind: "group",
 	}
+	app := &oort.Resource{
+		Id:   "my-app",
+		Kind: "app",
+	}
 	getConfigPerm := &oort.Permission{
 		Name:      "config.get",
 		Kind:      oort.Permission_ALLOW,
+		Condition: &oort.Condition{Expression: ""},
+	}
+	denyGetConfigPerm := &oort.Permission{
+		Name:      "config.get",
+		Kind:      oort.Permission_DENY,
 		Condition: &oort.Condition{Expression: ""},
 	}
 	putConfigPerm := &oort.Permission{
@@ -60,6 +69,32 @@ func main() {
 		SubjectScope: group,
 		ObjectScope:  parentNamespace,
 		Permission:   getConfigPerm,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// sve unutar ns-a (sve aplikacije) mogu da citaju konfiguraciju unutar tog ns-a
+	_, err = administrator.CreatePolicy(context.TODO(), &oort.CreatePolicyReq{
+		SubjectScope: parentNamespace,
+		ObjectScope:  parentNamespace,
+		Permission:   getConfigPerm,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = administrator.CreatePolicy(context.TODO(), &oort.CreatePolicyReq{
+		SubjectScope: childNamespace,
+		ObjectScope:  childNamespace,
+		Permission:   getConfigPerm,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// aplikacije iz ns-a ne mogu da citaju konfiguracije roditeljskih ns-ova
+	_, err = administrator.CreatePolicy(context.TODO(), &oort.CreatePolicyReq{
+		SubjectScope: childNamespace,
+		ObjectScope:  parentNamespace,
+		Permission:   denyGetConfigPerm,
 	})
 	if err != nil {
 		log.Fatalln(err)
@@ -87,7 +122,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// svaka konfiguracija pripada ns-u
+	// svaka konfiguracija i aplikacija pripada ns-u
 	_, err = administrator.CreateInheritanceRel(context.TODO(), &oort.CreateInheritanceRelReq{
 		From: parentNamespace,
 		To:   parentConfig,
@@ -98,6 +133,13 @@ func main() {
 	_, err = administrator.CreateInheritanceRel(context.TODO(), &oort.CreateInheritanceRelReq{
 		From: childNamespace,
 		To:   childConfig,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = administrator.CreateInheritanceRel(context.TODO(), &oort.CreateInheritanceRelReq{
+		From: childNamespace,
+		To:   app,
 	})
 	if err != nil {
 		log.Fatalln(err)
