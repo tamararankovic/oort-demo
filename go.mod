@@ -18,3 +18,5 @@ require (
 )
 
 replace github.com/c12s/oort => ../oort
+
+replace github.com/c12s/magnetar => ../magnetar

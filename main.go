@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	oort "github.com/c12s/oort/pkg/proto"
+	oort "github.com/c12s/oort/pkg/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
@@ -165,7 +165,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user1,
 		Object:         childConfig,
@@ -174,7 +174,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user2,
 		Object:         childConfig,
@@ -183,7 +183,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user2,
 		Object:         childConfig,
@@ -192,7 +192,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	// korisnik jedan moze da menja sve konfiguracije unutar child ns
 	// sve ostalo je zabranjeno
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
@@ -203,7 +203,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user1,
 		Object:         parentNamespace,
@@ -212,7 +212,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user2,
 		Object:         childNamespace,
@@ -221,7 +221,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user2,
 		Object:         parentNamespace,
@@ -230,5 +230,5 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(resp.Allowed)
+	log.Println(resp.Authorized)
 }
