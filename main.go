@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
+	"time"
 )
 
 func main() {
@@ -15,6 +16,11 @@ func main() {
 	}
 	administrator := oort.NewOortAdministratorClient(dial)
 	evaluator := oort.NewOortEvaluatorClient(dial)
+
+	administratorAsync, err := oort.NewAdministrationAsyncClient("localhost:4222")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	parentNamespace := &oort.Resource{
 		Id:   "parent",
@@ -65,10 +71,18 @@ func main() {
 	}
 
 	// svi unutar grupe mogu da citaju konfiguracije unutar roditeljskog ns-a
-	_, err = administrator.CreatePolicy(context.TODO(), &oort.CreatePolicyReq{
+	// zakomentarisani deo salje preko grpc klijenta, a ispod je asinhrono slanje zahteva
+	//_, err = administrator.CreatePolicy(context.TODO(), &oort.CreatePolicyReq{
+	//	SubjectScope: group,
+	//	ObjectScope:  parentNamespace,
+	//	Permission:   getConfigPerm,
+	//})
+	err = administratorAsync.SendRequest(&oort.CreatePolicyReq{
 		SubjectScope: group,
 		ObjectScope:  parentNamespace,
 		Permission:   getConfigPerm,
+	}, func(resp *oort.AdministrationAsyncResp) {
+		log.Println(resp.Error)
 	})
 	if err != nil {
 		log.Fatalln(err)
@@ -103,6 +117,12 @@ func main() {
 	_, err = administrator.CreateInheritanceRel(context.TODO(), &oort.CreateInheritanceRelReq{
 		From: group,
 		To:   user1,
+	})
+	err = administratorAsync.SendRequest(&oort.CreateInheritanceRelReq{
+		From: group,
+		To:   user1,
+	}, func(resp *oort.AdministrationAsyncResp) {
+		log.Println(resp.Error)
 	})
 	if err != nil {
 		log.Fatalln(err)
@@ -153,6 +173,9 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	// cekamo da se asinhrono poslati zahtevi obrade
+	time.Sleep(2 * time.Second)
 
 	// svi korisnici mogu da citaju konfiguraciju iz bilo kog ns-a
 	// jer su nasledili dozvolu od grupe kojoj pripadaju
