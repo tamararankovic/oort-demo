@@ -22,6 +22,6 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 )
 
-replace github.com/c12s/oort => ../oort
+replace github.com/c12s/oort => ../tardis/oort
 
-replace github.com/c12s/magnetar => ../magnetar
+replace github.com/c12s/magnetar => ../tardis/magnetar

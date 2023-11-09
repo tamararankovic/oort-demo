@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"log"
+	"time"
+
 	oort "github.com/c12s/oort/pkg/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
-	"time"
 )
 
 func main() {
@@ -22,54 +23,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	parentNamespace := &oort.Resource{
-		Id:   "parent",
-		Kind: "namespace",
-	}
-	childNamespace := &oort.Resource{
-		Id:   "child",
-		Kind: "namespace",
-	}
-	parentConfig := &oort.Resource{
-		Id:   "parent/parentConfig",
-		Kind: "config",
-	}
-	childConfig := &oort.Resource{
-		Id:   "child/childConfig",
-		Kind: "config",
-	}
-	user1 := &oort.Resource{
-		Id:   "1",
-		Kind: "user",
-	}
-	user2 := &oort.Resource{
-		Id:   "2",
-		Kind: "user",
-	}
-	group := &oort.Resource{
-		Id:   "1",
-		Kind: "group",
-	}
-	app := &oort.Resource{
-		Id:   "my-app",
-		Kind: "app",
-	}
-	getConfigPerm := &oort.Permission{
-		Name:      "config.get",
-		Kind:      oort.Permission_ALLOW,
-		Condition: &oort.Condition{Expression: ""},
-	}
-	denyGetConfigPerm := &oort.Permission{
-		Name:      "config.get",
-		Kind:      oort.Permission_DENY,
-		Condition: &oort.Condition{Expression: ""},
-	}
-	putConfigPerm := &oort.Permission{
-		Name:      "config.put",
-		Kind:      oort.Permission_ALLOW,
-		Condition: &oort.Condition{Expression: ""},
-	}
+	basicRPCs(administrator, administratorAsync, evaluator)
+	grantedPermissions(evaluator)
+}
 
+func basicRPCs(administrator oort.OortAdministratorClient, administratorAsync *oort.AdministrationAsyncClient, evaluator oort.OortEvaluatorClient) {
 	// svi unutar grupe mogu da citaju konfiguracije unutar roditeljskog ns-a
 	// zakomentarisani deo salje preko grpc klijenta, a ispod je asinhrono slanje zahteva
 	//_, err = administrator.CreatePolicy(context.TODO(), &oort.CreatePolicyReq{
@@ -77,12 +35,14 @@ func main() {
 	//	ObjectScope:  parentNamespace,
 	//	Permission:   getConfigPerm,
 	//})
-	err = administratorAsync.SendRequest(&oort.CreatePolicyReq{
+	err := administratorAsync.SendRequest(&oort.CreatePolicyReq{
 		SubjectScope: group,
 		ObjectScope:  parentNamespace,
 		Permission:   getConfigPerm,
 	}, func(resp *oort.AdministrationAsyncResp) {
-		log.Println(resp.Error)
+		if len(resp.Error) > 0 {
+			log.Println(resp.Error)
+		}
 	})
 	if err != nil {
 		log.Fatalln(err)
@@ -114,15 +74,20 @@ func main() {
 		log.Fatalln(err)
 	}
 	// korisnici nasledjuje dozvole iz grupe
-	_, err = administrator.CreateInheritanceRel(context.TODO(), &oort.CreateInheritanceRelReq{
-		From: group,
-		To:   user1,
-	})
+	// _, err = administrator.CreateInheritanceRel(context.TODO(), &oort.CreateInheritanceRelReq{
+	// 	From: group,
+	// 	To:   user1,
+	// })
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
 	err = administratorAsync.SendRequest(&oort.CreateInheritanceRelReq{
 		From: group,
 		To:   user1,
 	}, func(resp *oort.AdministrationAsyncResp) {
-		log.Println(resp.Error)
+		if len(resp.Error) > 0 {
+			log.Println(resp.Error)
+		}
 	})
 	if err != nil {
 		log.Fatalln(err)
@@ -200,7 +165,7 @@ func main() {
 	log.Println(resp.Authorized)
 	resp, err = evaluator.Authorize(context.TODO(), &oort.AuthorizationReq{
 		Subject:        user2,
-		Object:         childConfig,
+		Object:         parentConfig,
 		PermissionName: getConfigPerm.Name,
 	})
 	if err != nil {
@@ -255,3 +220,88 @@ func main() {
 	}
 	log.Println(resp.Authorized)
 }
+
+func grantedPermissions(evaluator oort.OortEvaluatorClient) {
+	resp, err := evaluator.GetGrantedPermissions(context.TODO(), &oort.GetGrantedPermissionsReq{
+		Subject: user1,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("permissions of user 1")
+	for _, perm := range resp.Permissions {
+		log.Printf("%s - %s/%s", perm.Name, perm.Object.Kind, perm.Object.Id)
+	}
+
+	resp, err = evaluator.GetGrantedPermissions(context.TODO(), &oort.GetGrantedPermissionsReq{
+		Subject: user2,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("permissions of user 2")
+	for _, perm := range resp.Permissions {
+		log.Printf("%s - %s/%s", perm.Name, perm.Object.Kind, perm.Object.Id)
+	}
+
+	resp, err = evaluator.GetGrantedPermissions(context.TODO(), &oort.GetGrantedPermissionsReq{
+		Subject: app,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("permissions of app 'my-app'")
+	for _, perm := range resp.Permissions {
+		log.Printf("%s - %s/%s", perm.Name, perm.Object.Kind, perm.Object.Id)
+	}
+}
+
+var (
+	parentNamespace = &oort.Resource{
+		Id:   "parent",
+		Kind: "namespace",
+	}
+	childNamespace = &oort.Resource{
+		Id:   "child",
+		Kind: "namespace",
+	}
+	parentConfig = &oort.Resource{
+		Id:   "org1/config1/v1",
+		Kind: "config",
+	}
+	childConfig = &oort.Resource{
+		Id:   "org1/config1/v2",
+		Kind: "config",
+	}
+	user1 = &oort.Resource{
+		Id:   "1",
+		Kind: "user",
+	}
+	user2 = &oort.Resource{
+		Id:   "2",
+		Kind: "user",
+	}
+	group = &oort.Resource{
+		Id:   "1",
+		Kind: "user-group",
+	}
+	app = &oort.Resource{
+		Id:   "my-app",
+		Kind: "app",
+	}
+	getConfigPerm = &oort.Permission{
+		Name:      "config.get",
+		Kind:      oort.Permission_ALLOW,
+		Condition: &oort.Condition{Expression: ""},
+	}
+	denyGetConfigPerm = &oort.Permission{
+		Name:      "config.get",
+		Kind:      oort.Permission_DENY,
+		Condition: &oort.Condition{Expression: ""},
+	}
+	putConfigPerm = &oort.Permission{
+		Name:      "config.put",
+		Kind:      oort.Permission_ALLOW,
+		Condition: &oort.Condition{Expression: ""},
+	}
+)
